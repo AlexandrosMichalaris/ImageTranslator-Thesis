@@ -1,6 +1,5 @@
 package com.example.textrecognitionproject.navigation
 
-import AppContentViewModel
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModel
@@ -11,21 +10,25 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import com.example.textrecognitionproject.AppContentViewModel
+import com.example.textrecognitionproject.mainViews.AppContent
 
 @Composable
 fun Navigation() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "") {
+    NavHost(navController = navController, startDestination = "app") {
         navigation(
-            startDestination = "main",
-            route = ""
+            startDestination = Screen.MainScreen.route,
+            route = "app"
         ) {
-            composable(route = "main") {
+            composable(route = Screen.MainScreen.route) {
                 val viewModel = it.sharedViewModel<AppContentViewModel>(navController)
-                navController.navigate(route = "mlkitProcess")
+                AppContent(viewModel = viewModel)
             }
-            composable(route = "mlkitProcess") {
+            composable(route = Screen.MLKitProcess.route) {
+
                 val viewModel = it.sharedViewModel<AppContentViewModel>(navController)
+
             }
         }
 
