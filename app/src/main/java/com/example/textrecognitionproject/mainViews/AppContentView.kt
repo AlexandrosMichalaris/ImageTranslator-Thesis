@@ -1,4 +1,3 @@
-
 package com.example.textrecognitionproject.mainViews
 
 import CameraView
@@ -31,9 +30,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -66,6 +62,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.google.mlkit.vision.common.InputImage
 import java.io.File
 import java.util.concurrent.Executors
+
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -74,19 +71,18 @@ fun AppContent(viewModel: AppContentViewModel) {
     val extractedTextFromMLKitImage by viewModel.textFromML.collectAsState()
     val languageFromTextFromML by viewModel.languageFromTextFromML.collectAsState()
     val mlKitStatus by viewModel.textImageProcessingStatus.collectAsState()
-
+    val selectedLanguageToTranslateTo by viewModel.selectedLanguageToTranslateTo.collectAsState()
     val languageRecognitionStatus by viewModel.languageIdentificationProcessingStatus.collectAsState()
     val translationStatus by viewModel.textImageTranslationStatus.collectAsState()
     val translatedText by viewModel.translatedText.collectAsState()
     var shouldShowCamera by remember { mutableStateOf<Boolean>(false) }
     var shouldShowImageCropper by remember { mutableStateOf(false) }
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
 
     var inputImage: InputImage? by remember { mutableStateOf(null) }
 
-    val cameraPermissionState: PermissionState = rememberPermissionState(permission = Manifest.permission.CAMERA)
+    val cameraPermissionState: PermissionState =
+        rememberPermissionState(permission = Manifest.permission.CAMERA)
     val galleryLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             if (uri != null) {
@@ -98,118 +94,114 @@ fun AppContent(viewModel: AppContentViewModel) {
     BackHandler(enabled = shouldShowCamera) {
         shouldShowCamera = false
     }
-    Scaffold(
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState)
-        }
-    ) { _ ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                ChooseOrTakePhotoView(
-                    choosePhotoFromLibraryAction = { galleryLauncher.launch("image/*") },
-                    takePhotoAction = { takePhotoAction(state = cameraPermissionState) { shouldShowCamera = it } },
+            ChooseOrTakePhotoView(
+                choosePhotoFromLibraryAction = { galleryLauncher.launch("image/*") },
+                takePhotoAction = {
+                    takePhotoAction(state = cameraPermissionState) {
+                        shouldShowCamera = it
+                    }
+                },
+            )
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap!!.asImageBitmap(),
+                    contentScale = ContentScale.FillBounds,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(16.dp, 8.dp)
+                        .size(150.dp)
+                        .clip(RoundedCornerShape(20.dp))
                 )
-                if (bitmap != null) {
-                    Image(
-                        bitmap = bitmap!!.asImageBitmap(),
-                        contentScale = ContentScale.FillBounds,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .padding(16.dp, 8.dp)
-                            .size(150.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                    )
-                    when(mlKitStatus) {
-                        MLKitStatus.IN_PROGRESS -> CircularProgressIndicator()
-                        else -> {
-                            ExtractedTextView(
-                                text = extractedTextFromMLKitImage,
-                                mlKitStatus = mlKitStatus,
-                                failedText = "Failed to extract text."
+                when (mlKitStatus) {
+                    MLKitStatus.IN_PROGRESS -> CircularProgressIndicator()
+                    else -> {
+                        ExtractedTextView(
+                            text = extractedTextFromMLKitImage,
+                            mlKitStatus = mlKitStatus,
+                            failedText = "Failed to extract text."
+                        )
+                        if (languageFromTextFromML != null && languageRecognitionStatus == MLKitStatus.SUCCESS) {
+                            LanguagePicker(
+                                currentLanguageOfText = languageFromTextFromML!!.displayLocale,
+                                languageList = viewModel.languageList,
+                                selectedLanguageToTranslateTo = {
+                                    viewModel.setSelectedLanguageToTranslateTo(it)
+                                }
                             )
-                            if (languageFromTextFromML != null && languageRecognitionStatus == MLKitStatus.SUCCESS) {
-                                LanguagePicker(
-                                    currentLanguageOfText = languageFromTextFromML!!.displayLocale,
-                                    languageList = viewModel.languageList,
-                                    selectedLanguageOfText = {
-                                        viewModel.setLanguageOfText(it)
-                                    },
-                                    selectedLanguageToTranslateTo = {
-                                        viewModel.setSelectedLanguageToTranslateTo(it)
-                                    }
-                                )
-                                Row {
-                                    Button(onClick = { /*TODO*/ }) {
-                                        Text(text = if(viewModel.isModelAlreadyDownloaded()) { "Delete Model" } else { "Download Model"})
-                                    }
-                                    Button(onClick = { viewModel.translateText() }) {
-                                        Text(text = "Translate")
-                                    }
+                            Row {
+                                Button(
+                                    enabled = (selectedLanguageToTranslateTo != null),
+                                    onClick = { viewModel.translateText() }) {
+                                    Text(text = "Translate")
                                 }
-
-                                when(translationStatus) {
-                                    MLKitStatus.IN_PROGRESS -> CircularProgressIndicator()
-                                    else -> {
-                                        if (translatedText.isNotEmpty() && translationStatus == MLKitStatus.SUCCESS) {
-                                            ExtractedTextView(
-                                                text = translatedText,
-                                                mlKitStatus = translationStatus,
-                                                failedText = "Failed to translate"
-                                            )
-                                        }
-                                    }
-                                }
-                            } else if (languageRecognitionStatus == MLKitStatus.FAILED) {
-                                Text(text = "Cannot Identify Language")
                             }
+
+                            when (translationStatus) {
+                                MLKitStatus.IN_PROGRESS -> CircularProgressIndicator()
+                                else -> {
+                                    if (translatedText.isNotEmpty() && translationStatus == MLKitStatus.SUCCESS) {
+                                        ExtractedTextView(
+                                            text = translatedText,
+                                            mlKitStatus = translationStatus,
+                                            failedText = "Failed to translate"
+                                        )
+                                    }
+                                }
+                            }
+                        } else if (languageRecognitionStatus == MLKitStatus.FAILED) {
+                            Text(text = "Cannot Identify Language")
                         }
                     }
-
                 }
+
             }
-            if (shouldShowCamera) {
-                CameraView(outputDirectory = getOutputDirectory(context = localContext),
-                    executor = Executors.newSingleThreadExecutor(),
-                    onImageCaptured = { it ->
-                        bitmap = it
-                        shouldShowCamera = false
-                        shouldShowImageCropper = true
-                    },
-                    onError = { Log.e("", "View error:", it) }
-                )
-            }
-            if (shouldShowImageCropper && bitmap != null) {
-                CropImageView(
-                    bitmap = bitmap!!,
-                    bitmapResult = {
-                        bitmap = it
-                        if (bitmap != null) {
-                            inputImage = InputImage.fromBitmap(bitmap!!, 0)
-                        }
-                        inputImage.let {
-                            if (it != null) {
-                                viewModel.inputImageProcessingWithMLKIT(inputImage = it)
-                            }
-                        }
-                        shouldShowImageCropper = false
+        }
+        if (shouldShowCamera) {
+            CameraView(outputDirectory = getOutputDirectory(context = localContext),
+                executor = Executors.newSingleThreadExecutor(),
+                onImageCaptured = { it ->
+                    bitmap = it
+                    shouldShowCamera = false
+                    shouldShowImageCropper = true
+                },
+                onError = { Log.e("", "View error:", it) }
+            )
+        }
+        if (shouldShowImageCropper && bitmap != null) {
+            CropImageView(
+                bitmap = bitmap!!,
+                bitmapResult = {
+                    bitmap = it
+                    if (bitmap != null) {
+                        inputImage = InputImage.fromBitmap(bitmap!!, 0)
                     }
-                )
-            }
+                    inputImage.let {
+                        if (it != null) {
+                            viewModel.inputImageProcessingWithMLKIT(inputImage = it)
+                        }
+                    }
+                    shouldShowImageCropper = false
+                }
+            )
         }
     }
+
 }
 
 private fun getOutputDirectory(context: Context): File {
     val externalDirs = context.getExternalFilesDirs(Environment.DIRECTORY_PICTURES)
     for (fileDir in externalDirs) {
         if (fileDir != null) {
-            val mediaDir = File(fileDir, context.resources.getString(R.string.app_name)).apply { mkdirs() }
+            val mediaDir =
+                File(fileDir, context.resources.getString(R.string.app_name)).apply { mkdirs() }
             if (mediaDir.exists()) {
                 return mediaDir
             }
@@ -240,7 +232,8 @@ fun ExtractedTextView(
 ) {
     // Generate a list of items
     val scrollState = rememberScrollState()
-    val clipboardManager: androidx.compose.ui.platform.ClipboardManager = LocalClipboardManager.current
+    val clipboardManager: androidx.compose.ui.platform.ClipboardManager =
+        LocalClipboardManager.current
     Box(
         modifier = Modifier
             .padding(16.dp)
@@ -250,10 +243,12 @@ fun ExtractedTextView(
             .padding(10.dp)
 
     ) {
-        Column(modifier = Modifier
-            .padding(horizontal = 16.dp)
-            .fillMaxWidth()) {
-            val getFinalText: String = when(mlKitStatus) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth()
+        ) {
+            val getFinalText: String = when (mlKitStatus) {
                 MLKitStatus.FAILED -> failedText
                 MLKitStatus.SUCCESS -> text
                 else -> {
@@ -285,7 +280,6 @@ fun ExtractedTextView(
 fun LanguagePicker(
     currentLanguageOfText: String,
     languageList: MutableList<LanguageModel>,
-    selectedLanguageOfText: (String) -> (Unit),
     selectedLanguageToTranslateTo: (String) -> (Unit)
 ) {
     Row(
@@ -311,7 +305,7 @@ fun LanguagePicker(
             modifierInsideItems = Modifier
                 .width(configuration.screenWidthDp.dp / 3)
                 .heightIn(max = 200.dp),
-            listOptions = listOptions,
+            listOptions = listOf(),
             onSelection = {
 
             },

@@ -25,14 +25,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.smarttoolfactory.cropper.ImageCropper
-import com.smarttoolfactory.cropper.model.OutlineType
-import com.smarttoolfactory.cropper.model.RectCropShape
-import com.smarttoolfactory.cropper.settings.CropDefaults
-import com.smarttoolfactory.cropper.settings.CropOutlineProperty
+import io.moyuru.cropify.Cropify
+import io.moyuru.cropify.rememberCropifyState
 import java.io.InputStream
 
 @Composable
@@ -40,103 +36,94 @@ fun CropImageView(
     bitmap: Bitmap,
     bitmapResult: (Bitmap) -> Unit
 ) {
-    var cropImage by remember { mutableStateOf(false) }
     var bitmap by remember { mutableStateOf(bitmap) }
-    val handleSize: Float = LocalDensity.current.run { 10.dp.toPx() }
+    val state = rememberCropifyState()
+
     Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .fillMaxWidth()
+            .background(Color.Black)
+    ) {
+        Cropify(
+            bitmap = bitmap.asImageBitmap(),
+            state = state,
+            onImageCropped = {
+                bitmapResult(it.asAndroidBitmap())
+            },
             modifier = Modifier
-                .fillMaxSize()
                 .fillMaxWidth()
-                .background(Color.Black)
+                .weight(4f),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .weight(1f)
+                .padding(horizontal = 10.dp)
+                .padding(vertical = 30.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            ImageCropper(
+            Button(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(4f),
-                imageBitmap = bitmap!!.asImageBitmap(),
-                contentDescription = "",
-                cropProperties = CropDefaults.properties(
-                    cropOutlineProperty = CropOutlineProperty(
-                        OutlineType.Rect,
-                        RectCropShape(0, "Rect")
-                    ),
-                    handleSize = handleSize
-                ),
-                crop = cropImage,
-                onCropStart = { /*TODO*/ },
-                onCropSuccess = {
-                    bitmapResult(it.asAndroidBitmap())
-                }
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
                     .fillMaxHeight()
-                    .weight(1f)
-                    .padding(horizontal = 10.dp)
-                    .padding(vertical = 30.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Button(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .weight(1f),
-                    onClick = {
-                        bitmap = rotateBitmap(
-                            bitmap,
-                            degrees = -90f
-                        )
-                    }) {
-                    Text(
-                        text = "Rotate\nLeft",
-                        textAlign = TextAlign.Center,
-                        maxLines = 2
+                    .weight(1f),
+                onClick = {
+                    bitmap = rotateBitmap(
+                        bitmap,
+                        degrees = -90f
                     )
-                }
-                Button(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .weight(1f),
-                    onClick = {
-                        cropImage = true
-                    }) {
-                    Text(
-                        text = "Crop",
-                        textAlign = TextAlign.Center,
-                        maxLines = 2
-                    )
-                }
-                Button(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .weight(1f),
-                    onClick = {
-                        bitmapResult(bitmap)
-                    }) {
-                    Text(
-                        text = "Don't\nCrop",
-                        textAlign = TextAlign.Center,
-                        maxLines = 2
-                    )
-                }
-                Button(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .weight(1f),
-                    onClick = {
-                        bitmap = rotateBitmap(
-                            bitmap!!,
-                            degrees = 90f
-                        )
-                    }
-                ) {
-                    Text(
-                        text = "Rotate\nRight",
-                        textAlign = TextAlign.Center
-                    )
-                }
+                }) {
+                Text(
+                    text = "Rotate\nLeft",
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
             }
+            Button(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .weight(1f),
+                onClick = {
+                    state.crop()
+                }) {
+                Text(
+                    text = "Crop",
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
+            }
+            Button(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .weight(1f),
+                onClick = {
+                    bitmapResult(bitmap)
+                }) {
+                Text(
+                    text = "Don't\nCrop",
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
+            }
+            Button(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .weight(1f),
+                onClick = {
+                    bitmap = rotateBitmap(
+                        bitmap!!,
+                        degrees = 90f
+                    )
+                }
+            ) {
+                Text(
+                    text = "Rotate\nRight",
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
     }
 }
 

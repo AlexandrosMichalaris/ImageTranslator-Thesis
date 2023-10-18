@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("io.realm.kotlin")
 }
 
 android {
@@ -76,7 +77,7 @@ dependencies {
 
     implementation("com.google.mlkit:translate:17.0.1")
     implementation("androidx.navigation:navigation-compose:2.7.4")
-
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("io.coil-kt:coil-compose:1.3.2")
     implementation("androidx.camera:camera-lifecycle:1.2.3")
     implementation("androidx.camera:camera-core:1.2.3")
@@ -92,5 +93,6 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-    implementation("com.github.SmartToolFactory:Compose-Cropper:0.4.0")
+    implementation("com.github.moyuruaizawa:cropify:0.3.1")
+    implementation("io.realm.kotlin:library-base:1.11.0")
 }

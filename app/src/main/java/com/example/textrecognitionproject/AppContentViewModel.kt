@@ -2,12 +2,12 @@ package com.example.textrecognitionproject
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import com.example.textrecognitionproject.entities.TranslatedImage
 import com.example.textrecognitionproject.enums.MLKitStatus.FAILED
 import com.example.textrecognitionproject.enums.MLKitStatus.IN_PROGRESS
 import com.example.textrecognitionproject.enums.MLKitStatus.NOT_STARTED_YET
 import com.example.textrecognitionproject.enums.MLKitStatus.SUCCESS
 import com.google.mlkit.common.model.DownloadConditions
-import com.google.mlkit.common.model.RemoteModelManager
 import com.google.mlkit.nl.languageid.LanguageIdentification
 import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.TranslateRemoteModel
@@ -17,6 +17,8 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import io.realm.kotlin.Realm
+import io.realm.kotlin.RealmConfiguration
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.Locale
 
@@ -43,9 +45,9 @@ class AppContentViewModel : ViewModel() {
     val languageIdentificationProcessingStatus = _languageIdentificationProcessingStatus
     private val _textImageTranslationStatus = MutableStateFlow(NOT_STARTED_YET)
     val textImageTranslationStatus = _textImageTranslationStatus
-
+    val config = RealmConfiguration.create(schema = setOf(TranslatedImage::class))
+    val realm: Realm = Realm.open(config)
     init {
-        getTranslatorModels()
         getAllTranslateLanguages()
     }
     fun inputImageProcessingWithMLKIT(inputImage: InputImage) {
@@ -103,10 +105,6 @@ class AppContentViewModel : ViewModel() {
         this._selectedLanguageToTranslateTo.value = languageList.find { it.displayLocale == language }
     }
 
-    fun setLanguageOfText(language: String) {
-        this._languageFromTextFromML.value = languageList.find { it.displayLocale == language }
-    }
-
     private fun resetValues() {
         _textFromML.value = ""
         _selectedLanguageToTranslateTo.value = null
@@ -117,7 +115,7 @@ class AppContentViewModel : ViewModel() {
         _textImageTranslationStatus.value = NOT_STARTED_YET
     }
 
-    fun translateText() {
+    fun translateText(isFirstTime: Boolean = true) {
         _textImageTranslationStatus.value = IN_PROGRESS
         val options = TranslatorOptions.Builder()
             .setSourceLanguage(_languageFromTextFromML.value?.locale.toString())
@@ -139,44 +137,14 @@ class AppContentViewModel : ViewModel() {
                     }
             }
             .addOnFailureListener { exception ->
-                exception.cause?.message
-                _textImageTranslationStatus.value = FAILED
-
-            }
-    }
-
-    fun downloadModel() {
-
-    }
-
-    fun deleteModel() {
-
-    }
-
-    fun isModelAlreadyDownloaded(): Boolean {
-        val isLanguageFromTextDownloaded: Boolean = _translationModels.any { it.language == _languageFromTextFromML.value?.locale.toString() }
-        val isLanguageFromSelectedTextToTranslateDownloaded: Boolean =  _translationModels.any { it.language == _selectedLanguageToTranslateTo.value?.locale.toString() }
-        return isLanguageFromTextDownloaded && isLanguageFromSelectedTextToTranslateDownloaded
-    }
-
-    fun downloadDeleteModel() {
-
-    }
-
-    private fun getTranslatorModels() {
-        val modelManager = RemoteModelManager.getInstance()
-
-        modelManager.getDownloadedModels(TranslateRemoteModel::class.java)
-            .addOnSuccessListener { models ->
-                this._translationModels = models
-                for (model in models) {
-                    Log.d("translator", "model: ${model.language}")
+                if (isFirstTime) {
+                    translateText(isFirstTime = false)
+                } else {
+                    _textImageTranslationStatus.value = FAILED
                 }
-            }
-            .addOnFailureListener {
-                // Error.
-            }
 
+
+            }
     }
 }
 data class LanguageModel(val locale: Locale, val displayLocale: String)
