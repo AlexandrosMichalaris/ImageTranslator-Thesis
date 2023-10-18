@@ -25,11 +25,6 @@ fun Navigation() {
                 val viewModel = it.sharedViewModel<AppContentViewModel>(navController)
                 AppContent(viewModel = viewModel)
             }
-            composable(route = Screen.MLKitProcess.route) {
-
-                val viewModel = it.sharedViewModel<AppContentViewModel>(navController)
-
-            }
         }
 
     }

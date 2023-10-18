@@ -3,6 +3,7 @@ package com.example.textrecognitionproject.mainViews
 
 import CameraView
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.Environment
@@ -30,6 +31,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -62,6 +66,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.google.mlkit.vision.common.InputImage
 import java.io.File
 import java.util.concurrent.Executors
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun AppContent(viewModel: AppContentViewModel) {
@@ -76,6 +81,8 @@ fun AppContent(viewModel: AppContentViewModel) {
     var shouldShowCamera by remember { mutableStateOf<Boolean>(false) }
     var shouldShowImageCropper by remember { mutableStateOf(false) }
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     var inputImage: InputImage? by remember { mutableStateOf(null) }
 
@@ -87,124 +94,116 @@ fun AppContent(viewModel: AppContentViewModel) {
                 shouldShowImageCropper = true
             }
         }
+
     BackHandler(enabled = shouldShowCamera) {
         shouldShowCamera = false
     }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
+    Scaffold(
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
+        }
+    ) { _ ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
         ) {
-            ChooseOrTakePhotoView(
-                choosePhotoFromLibraryAction = { galleryLauncher.launch("image/*") },
-                takePhotoAction = { takePhotoAction(state = cameraPermissionState) { shouldShowCamera = it } },
-            )
-            if (bitmap != null) {
-                Image(
-                    bitmap = bitmap!!.asImageBitmap(),
-                    contentScale = ContentScale.FillBounds,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .padding(16.dp, 8.dp)
-                        .size(150.dp)
-                        .clip(RoundedCornerShape(20.dp))
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                ChooseOrTakePhotoView(
+                    choosePhotoFromLibraryAction = { galleryLauncher.launch("image/*") },
+                    takePhotoAction = { takePhotoAction(state = cameraPermissionState) { shouldShowCamera = it } },
                 )
-                when(mlKitStatus) {
-                    MLKitStatus.IN_PROGRESS -> CircularProgressIndicator()
-                    else -> {
-                        ExtractedTextView(
-                            text = extractedTextFromMLKitImage,
-                            mlKitStatus = mlKitStatus,
-                            failedText = "Failed to extract text."
-                        )
-                        if (languageFromTextFromML != null && languageRecognitionStatus == MLKitStatus.SUCCESS) {
-                            LanguagePicker(
-                                currentLanguageOfText = languageFromTextFromML!!.displayLocale,
-                                languageList = viewModel.languageList,
-                                selectedLanguageToTranslateTo = {
-                                    viewModel.setSelectedLanguageToTranslateTo(it)
-                                }
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap!!.asImageBitmap(),
+                        contentScale = ContentScale.FillBounds,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(16.dp, 8.dp)
+                            .size(150.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                    )
+                    when(mlKitStatus) {
+                        MLKitStatus.IN_PROGRESS -> CircularProgressIndicator()
+                        else -> {
+                            ExtractedTextView(
+                                text = extractedTextFromMLKitImage,
+                                mlKitStatus = mlKitStatus,
+                                failedText = "Failed to extract text."
                             )
-                            Row {
-//                                Button(onClick = { /*TODO*/ }) {
-//                                    Text(text = "Download Model")
-//                                }
-                                Button(onClick = { viewModel.translateText() }) {
-                                    Text(text = "Translate")
-                                }
-                            }
-
-                            when(translationStatus) {
-                                MLKitStatus.IN_PROGRESS -> CircularProgressIndicator()
-                                else -> {
-                                    if (translatedText.isNotEmpty() && translationStatus == MLKitStatus.SUCCESS) {
-                                        ExtractedTextView(
-                                            text = translatedText,
-                                            mlKitStatus = translationStatus,
-                                            failedText = "Failed to translate"
-                                        )
+                            if (languageFromTextFromML != null && languageRecognitionStatus == MLKitStatus.SUCCESS) {
+                                LanguagePicker(
+                                    currentLanguageOfText = languageFromTextFromML!!.displayLocale,
+                                    languageList = viewModel.languageList,
+                                    selectedLanguageOfText = {
+                                        viewModel.setLanguageOfText(it)
+                                    },
+                                    selectedLanguageToTranslateTo = {
+                                        viewModel.setSelectedLanguageToTranslateTo(it)
+                                    }
+                                )
+                                Row {
+                                    Button(onClick = { /*TODO*/ }) {
+                                        Text(text = if(viewModel.isModelAlreadyDownloaded()) { "Delete Model" } else { "Download Model"})
+                                    }
+                                    Button(onClick = { viewModel.translateText() }) {
+                                        Text(text = "Translate")
                                     }
                                 }
+
+                                when(translationStatus) {
+                                    MLKitStatus.IN_PROGRESS -> CircularProgressIndicator()
+                                    else -> {
+                                        if (translatedText.isNotEmpty() && translationStatus == MLKitStatus.SUCCESS) {
+                                            ExtractedTextView(
+                                                text = translatedText,
+                                                mlKitStatus = translationStatus,
+                                                failedText = "Failed to translate"
+                                            )
+                                        }
+                                    }
+                                }
+                            } else if (languageRecognitionStatus == MLKitStatus.FAILED) {
+                                Text(text = "Cannot Identify Language")
                             }
-                        } else if (languageRecognitionStatus == MLKitStatus.FAILED) {
-                            Text(text = "Cannot Identify Language")
                         }
                     }
-                }
 
+                }
+            }
+            if (shouldShowCamera) {
+                CameraView(outputDirectory = getOutputDirectory(context = localContext),
+                    executor = Executors.newSingleThreadExecutor(),
+                    onImageCaptured = { it ->
+                        bitmap = it
+                        shouldShowCamera = false
+                        shouldShowImageCropper = true
+                    },
+                    onError = { Log.e("", "View error:", it) }
+                )
+            }
+            if (shouldShowImageCropper && bitmap != null) {
+                CropImageView(
+                    bitmap = bitmap!!,
+                    bitmapResult = {
+                        bitmap = it
+                        if (bitmap != null) {
+                            inputImage = InputImage.fromBitmap(bitmap!!, 0)
+                        }
+                        inputImage.let {
+                            if (it != null) {
+                                viewModel.inputImageProcessingWithMLKIT(inputImage = it)
+                            }
+                        }
+                        shouldShowImageCropper = false
+                    }
+                )
             }
         }
-        if (shouldShowCamera) {
-            CameraView(outputDirectory = getOutputDirectory(context = localContext),
-                executor = Executors.newSingleThreadExecutor(),
-                onImageCaptured = { it ->
-                    bitmap = it
-                    shouldShowCamera = false
-                    shouldShowImageCropper = true
-                },
-                onError = { Log.e("", "View error:", it) }
-            )
-        }
-        if (shouldShowImageCropper && bitmap != null) {
-            CropImageView(
-                bitmap = bitmap!!,
-                bitmapResult = {
-                    bitmap = it
-                    if (bitmap != null) {
-                        inputImage = InputImage.fromBitmap(bitmap!!, 0)
-                    }
-                    inputImage.let {
-                        if (it != null) {
-                            viewModel.inputImageProcessingWithMLKIT(inputImage = it)
-                        }
-                    }
-                    shouldShowImageCropper = false
-                }
-            )
-        }
     }
-
-
-
 }
-
-
-//private fun createInputImageFromUri(
-//    context: Context,
-//    uri: Uri
-//): InputImage? {
-//
-//    var image: InputImage? = null
-//    try {
-//        image = InputImage.fromFilePath(context, uri)
-//    } catch (e: IOException) {
-//        e.printStackTrace()
-//    }
-//    return image
-//}
 
 private fun getOutputDirectory(context: Context): File {
     val externalDirs = context.getExternalFilesDirs(Environment.DIRECTORY_PICTURES)
@@ -286,6 +285,7 @@ fun ExtractedTextView(
 fun LanguagePicker(
     currentLanguageOfText: String,
     languageList: MutableList<LanguageModel>,
+    selectedLanguageOfText: (String) -> (Unit),
     selectedLanguageToTranslateTo: (String) -> (Unit)
 ) {
     Row(
@@ -311,8 +311,10 @@ fun LanguagePicker(
             modifierInsideItems = Modifier
                 .width(configuration.screenWidthDp.dp / 3)
                 .heightIn(max = 200.dp),
-            listOptions = listOf(),
-            onSelection = {},
+            listOptions = listOptions,
+            onSelection = {
+
+            },
             value = currentLanguageOfText
         )
         Text(

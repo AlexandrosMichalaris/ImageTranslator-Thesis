@@ -46,6 +46,7 @@ class AppContentViewModel : ViewModel() {
 
     init {
         getTranslatorModels()
+        getAllTranslateLanguages()
     }
     fun inputImageProcessingWithMLKIT(inputImage: InputImage) {
         resetValues()
@@ -76,13 +77,12 @@ class AppContentViewModel : ViewModel() {
         languageIdentifier.identifyLanguage(text)
             .addOnSuccessListener { languageCode ->
                 if (languageCode == "und") {
-                    Log.i("LanguageIdentification", "Can't identify language.")
+
                     this._languageIdentificationProcessingStatus.value = FAILED
                 } else {
                     Log.i("LanguageIdentification", "Language: $languageCode")
                     val currentLocale = Locale(languageCode)
                     this._languageFromTextFromML.value = LanguageModel(locale = currentLocale, displayLocale = currentLocale.displayLanguage)
-                    getAllTranslateLanguages()
                     this._languageIdentificationProcessingStatus.value = SUCCESS
                 }
             }
@@ -101,7 +101,10 @@ class AppContentViewModel : ViewModel() {
 
     fun setSelectedLanguageToTranslateTo(language: String) {
         this._selectedLanguageToTranslateTo.value = languageList.find { it.displayLocale == language }
+    }
 
+    fun setLanguageOfText(language: String) {
+        this._languageFromTextFromML.value = languageList.find { it.displayLocale == language }
     }
 
     private fun resetValues() {
@@ -151,7 +154,13 @@ class AppContentViewModel : ViewModel() {
     }
 
     fun isModelAlreadyDownloaded(): Boolean {
-        return true
+        val isLanguageFromTextDownloaded: Boolean = _translationModels.any { it.language == _languageFromTextFromML.value?.locale.toString() }
+        val isLanguageFromSelectedTextToTranslateDownloaded: Boolean =  _translationModels.any { it.language == _selectedLanguageToTranslateTo.value?.locale.toString() }
+        return isLanguageFromTextDownloaded && isLanguageFromSelectedTextToTranslateDownloaded
+    }
+
+    fun downloadDeleteModel() {
+
     }
 
     private fun getTranslatorModels() {
